@@ -13,6 +13,19 @@
 
 puts "== Seeding AI Interview development data =="
 
+DEFAULT_USER = {
+  email:    "admin@test-corp.local",
+  password: "password123",
+  role:     "admin"
+}.freeze
+
+if User.exists?(email: DEFAULT_USER[:email])
+  puts "  Default user already exists: #{DEFAULT_USER[:email]} (skipped)"
+else
+  User.create!(DEFAULT_USER)
+  puts "  Created default user: #{DEFAULT_USER[:email]} / password: #{DEFAULT_USER[:password]}"
+end
+
 # ── Organization ─────────────────────────────────────────────────────────────
 #
 # We write directly to public.organizations (shared with rakamin-api).
