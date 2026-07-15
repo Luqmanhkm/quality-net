@@ -1,8 +1,8 @@
-\# Release Decision — v1.0.0
+# Release Decision — v1.0.1 (supersedes v1.0.0)
 
 
 
-\## What the gate checked
+## What the gate checked
 
 
 
@@ -16,29 +16,34 @@ The release gate CI (`.github/workflows/release-gate.yml`) runs on every version
 
 It does \*\*not\*\* and \*\*cannot\*\* currently verify:
 
-\- The real-time voice interview flow end-to-end (WebSocket → Gemini Live → audio playback), because this requires a live Gemini API key and cannot be meaningfully simulated in CI without incurring real API costs and non-determinism.
+- The real-time voice interview flow end-to-end (WebSocket → Gemini Live → audio playback), because this requires a live Gemini API key and cannot be meaningfully simulated in CI without incurring real API costs and non-determinism.
 
-\- Behavior specifically on Windows, since the CI runner is Linux-based.
-
-
-
-\## What it found
+- Behavior specifically on Windows, since the CI runner is Linux-based.
 
 
 
-\- All automated backend and frontend tests pass (see CI run attached to this tag).
-
-\- 5 of 7 audit findings (BUG-001, 002, 003, 004, 006, 007) are fixed and covered by regression tests.
-
-\- \*\*BUG-005 remains open\*\*: the WebSocket audio infrastructure is fully implemented (reconnect logic, audio ring buffer, coverage-based auto-end, time-ceiling handling — see `/assessment/01-audit.md`) but crashes fatally on Windows due to an EventMachine + SSL native-extension limitation. This is a well-known, long-standing compatibility gap for EventMachine on Windows, not a defect in the application's own logic.
+## What it found
 
 
 
-\## My recommendation: \*\*BLOCK the release of the voice-interview feature specifically, ship everything else.\*\*
+- All automated backend and frontend tests pass (see CI run attached to this tag).
+
+- 5 of 7 audit findings (BUG-001, 002, 003, 004, 006, 007) are fixed and covered by regression tests.
+
+- \*\*BUG-005 remains open\*\*: the WebSocket audio infrastructure is fully implemented (reconnect logic, audio ring buffer, coverage-based auto-end, time-ceiling handling — see `/assessment/01-audit.md`) but crashes fatally on Windows due to an EventMachine + SSL native-extension limitation. This is a well-known, long-standing compatibility gap for EventMachine on Windows, not a defect in the application's own logic.
+
+
+## Update: v1.0.0 → v1.0.1
+
+The first tag, v1.0.0, was rejected by its own release gate: `backend-tests` failed with a Zeitwerk naming mismatch (`AudioWebSocketMiddleware` vs. the auto-inflected `AudioWebsocketMiddleware`) that caused **Rails to fail to boot entirely** whenever `eager_load` is enabled — which is the default in production. This had never surfaced in local development (where `eager_load` defaults to `false`), and would have shipped completely unnoticed without this gate. It is now tracked as BUG-008 in the audit and fixed. Tag v1.0.1 was cut with the fix, and its release gate passed fully (backend + frontend). This is the clearest demonstration in this exercise of why the gate exists: it caught a production-breaking defect that manual testing on this machine never would have found.
 
 
 
-\### Reasoning
+## My recommendation: \*\*BLOCK the release of the voice-interview feature specifically, ship everything else.\*\*
+
+
+
+### Reasoning
 
 
 
@@ -50,35 +55,35 @@ Rather than either (a) claiming full "all green" release readiness I can't actua
 
 
 
-\### What ships now (releasable)
+### What ships now (releasable)
 
-\- Fixed onboarding flow (correct ports, working seed data).
+- Fixed onboarding flow (correct ports, working seed data).
 
-\- Fixed internet speed check (no longer false-blocking candidates).
+- Fixed internet speed check (no longer false-blocking candidates).
 
-\- Fixed data integrity issue where failed sessions were indistinguishable from successful ones.
+- Fixed data integrity issue where failed sessions were indistinguishable from successful ones.
 
-\- Quality gate infrastructure (Definition of Ready CI, test suites) protecting future changes.
-
-
-
-\### What's blocked
-
-\- The real-time voice interview feature itself, pending verification on a Linux/staging environment that mirrors production.
+- Quality gate infrastructure (Definition of Ready CI, test suites) protecting future changes.
 
 
 
-\### Mitigation \& owner
+### What's blocked
 
-\- \*\*Immediate mitigation\*\*: deploy to a Linux-based staging environment and manually run one full interview session end-to-end before enabling this feature for real candidates.
-
-\- \*\*Owner\*\*: whoever owns the deployment/infra for this project should run that verification; I was unable to do so within this Windows-only case study environment.
-
-\- \*\*If it fails on Linux too\*\*: the fix would involve either (a) replacing `faye-websocket` + `EventMachine` with a more actively maintained WebSocket stack (e.g. `async-websocket` or Rails' native `ActionCable` with a protocol adapter), which is a larger refactor, or (b) pinning to a known-working EventMachine build with explicit OpenSSL linkage.
+- The real-time voice interview feature itself, pending verification on a Linux/staging environment that mirrors production.
 
 
 
-\## Honest self-assessment of this case study's scope
+### Mitigation \& owner
+
+- \*\*Immediate mitigation\*\*: deploy to a Linux-based staging environment and manually run one full interview session end-to-end before enabling this feature for real candidates.
+
+- \*\*Owner\*\*: whoever owns the deployment/infra for this project should run that verification; I was unable to do so within this Windows-only case study environment.
+
+- \*\*If it fails on Linux too\*\*: the fix would involve either (a) replacing `faye-websocket` + `EventMachine` with a more actively maintained WebSocket stack (e.g. `async-websocket` or Rails' native `ActionCable` with a protocol adapter), which is a larger refactor, or (b) pinning to a known-working EventMachine build with explicit OpenSSL linkage.
+
+
+
+## Honest self-assessment of this case study's scope
 
 
 
