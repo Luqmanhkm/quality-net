@@ -69,6 +69,20 @@ export default function InterviewPage() {
       return;
     }
 
+    if (state === "failed") {
+      // Connection failed permanently after exhausting reconnect attempts.
+      // Honestly mark the session as ended with an error reason, instead of
+      // silently leaving it "active" forever (BUG-006 fix).
+      muteRef.current?.();
+      if (token && !audioCompleteCalledRef.current) {
+        audioCompleteCalledRef.current = true;
+        sessionsApi.audioComplete(token, "error").catch(() => {
+          // best-effort â€” UI already reflects the failure regardless
+        });
+      }
+      return;
+    }
+
     if (state === "reconnecting") {
       muteRef.current?.();
       connectionLostTimerRef.current = setTimeout(() => {
@@ -222,6 +236,20 @@ export default function InterviewPage() {
             </Button>
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (interviewState === "failed") {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center space-y-4">
+        <div className="text-4xl">âš ï¸</div>
+        <h2 className="text-xl font-semibold">Connection Lost</h2>
+        <p className="text-sm text-muted-foreground">
+          We couldn't maintain a stable connection for your interview.
+          <br />
+          Please contact the hiring team â€” they'll help you reschedule or resolve this.
+        </p>
       </div>
     );
   }

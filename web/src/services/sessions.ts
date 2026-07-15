@@ -29,6 +29,6 @@ export const sessionsApi = {
   getCandidateInfo: (token: string) =>
     api.get<CandidateInfo>(`/sessions/${token}/candidate`),
 
-  audioComplete: (token: string) =>
-    api.post<{ ended: boolean; message: string }>(`/sessions/${token}/audio_complete`),
+  audioComplete: (token: string, reason?: string) =>
+    api.post<{ ended: boolean; message: string }>(`/sessions/${token}/audio_complete`, reason ? { reason } : undefined),
 };
