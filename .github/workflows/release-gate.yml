@@ -1,0 +1,87 @@
+name: Release Gate
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rakamin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: api
+      - name: Set up test config
+        run: cp config/application.yml.sample config/application.yml
+      - name: Run migrations
+        env:
+          DB_HOST: localhost
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: rakamin_test
+          RAILS_ENV: test
+        run: bundle exec rails db:schema:load
+      - name: Run RSpec
+        env:
+          DB_HOST: localhost
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: rakamin_test
+          RAILS_ENV: test
+          REDIS_URL: redis://localhost:6379/1
+        run: bundle exec rspec
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test
+
+  release-status:
+    needs: [backend-tests, frontend-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Report release status
+        run: |
+          if [ "${{ needs.backend-tests.result }}" == "success" ] && [ "${{ needs.frontend-tests.result }}" == "success" ]; then
+            echo "✅ RELEASABLE — all automated checks passed."
+            echo "Note: this does NOT cover the real-time voice interview feature (BUG-005)," 
+            echo "which requires manual verification on a Linux-based staging environment."
+          else
+            echo "❌ BLOCKED — one or more checks failed. See job logs above."
+            exit 1
+          fi
