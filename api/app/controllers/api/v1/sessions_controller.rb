@@ -113,18 +113,25 @@ module Api
       end
 
       # POST /sessions/:token/audio_complete  — no JWT, invite token in URL
-      # Called by the frontend when the audio queue drains after a preparing_to_end signal.
-      # Ends the session if all coverage is complete; idempotent if already ended.
+      # Called by the frontend when the audio queue drains after a preparing_to_end signal,
+      # OR when the connection has failed permanently and the frontend needs to
+      # honestly mark the session as ended-with-error (BUG-006 fix).
       def audio_complete
         session = Session.unscoped.find_by(invite_token: params[:token])
         return json_error("Invalid or expired invite token", :not_found) unless session
 
         return json_response(ended: true, message: "Session already ended") if session.ended?
 
-        # No coverage re-check here. The backend WS already verified all_covered
-        # before sending preparing_to_end. Re-checking here caused false negatives
-        # (timing gap between WS detection and HTTP call) that stalled auto-end.
-        Sessions::EndHandler.new(session).call(reason: 'all_covered')
+        reason = params[:reason].presence || "all_covered"
+        reason = "all_covered" unless Session::END_REASONS.include?(reason)
+
+        # No coverage re-check here for the normal (all_covered) path. The backend WS
+        # already verified all_covered before sending preparing_to_end. Re-checking
+        # here caused false negatives (timing gap between WS detection and HTTP call)
+        # that stalled auto-end. For the "error" path (connection failed), we skip
+        # coverage checks entirely — the session is being ended because it never
+        # properly connected.
+        Sessions::EndHandler.new(session).call(reason: reason)
         json_response(ended: true, message: "Session ended")
       end
 
