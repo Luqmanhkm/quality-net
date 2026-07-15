@@ -1,0 +1,33 @@
+name: Definition of Ready Gate
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check-dor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR description has Definition of Ready filled
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          echo "Checking PR description for Definition of Ready checklist..."
+
+          if [ -z "$PR_BODY" ]; then
+            echo "❌ PR description is empty. Please fill out the PR template."
+            exit 1
+          fi
+
+          # Count how many of the 3 required DoR checkboxes are checked ([x])
+          CHECKED=$(echo "$PR_BODY" | grep -oE '\- \[x\].*(Spec/PRD|Acceptance criteria|Solution/design plan)' | wc -l)
+
+          echo "Checked DoR items found: $CHECKED / 3"
+
+          if [ "$CHECKED" -lt 3 ]; then
+            echo "❌ Definition of Ready is incomplete."
+            echo "This PR must have all 3 checked: Spec/PRD, Acceptance criteria, Solution/design plan."
+            exit 1
+          fi
+
+          echo "✅ Definition of Ready checklist is complete."
