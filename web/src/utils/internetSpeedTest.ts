@@ -18,7 +18,7 @@ export interface SpeedThresholds {
 
 export const DEFAULT_THRESHOLDS: SpeedThresholds = {
     minDownloadMbps: 8,
-    minUploadMbps: 4,
+    minUploadMbps: 1,
     maxPingMs: 300,
 };
 
@@ -126,6 +126,19 @@ function average(values: number[]): number {
     return trimmed.reduce((a, b) => a + b, 0) / trimmed.length;
 }
 
+export function evaluateSpeedResult(
+    downloadMbps: number,
+    uploadMbps: number,
+    ping: number,
+    thresholds: SpeedThresholds
+): boolean {
+    return (
+        downloadMbps >= thresholds.minDownloadMbps &&
+        uploadMbps >= thresholds.minUploadMbps &&
+        ping <= thresholds.maxPingMs
+    );
+}
+
 export async function testInternetSpeed(
     thresholds: SpeedThresholds = DEFAULT_THRESHOLDS
 ): Promise<InternetSpeedResult> {
@@ -140,10 +153,7 @@ export async function testInternetSpeed(
         const uploadMbps = average(uploadTests) * 8;
         const ping = average(pingTests);
 
-        const passed =
-            downloadMbps >= thresholds.minDownloadMbps &&
-            uploadMbps >= thresholds.minUploadMbps &&
-            ping <= thresholds.maxPingMs;
+        const passed = evaluateSpeedResult(downloadMbps, uploadMbps, ping, thresholds);
 
         return {
             download: Math.round(downloadMbps * 100) / 100,
